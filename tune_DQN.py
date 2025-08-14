@@ -13,12 +13,13 @@ from train_DQN import DQNAgent, trainDQN
 RUN_NOMINAL_BASELINE = False
 
 # Tuning flags - set to True to run that specific tuning phase
+# Take into consideration that if the code is ran with any of the conditions as True, the current existing csv file in tune/ will be overwritten
 TUNE_LAYERS = False
 TUNE_BATCH_SIZE = False
 TUNE_LEARNING_RATE = False 
 TUNE_EPSILON_DECAY = False
 TUNE_EPSILON_MIN = False
-TUNE_GAMMA = True
+TUNE_GAMMA = False
 
 # --- Directory Setup ---
 os.makedirs("tune", exist_ok=True)
@@ -31,7 +32,7 @@ os.makedirs("tune/layers", exist_ok=True)
 os.makedirs("tune/discount_factor", exist_ok=True)
 os.makedirs("saved_models", exist_ok=True)
 
-# --- Global Seed for Reproducibility ---
+# fixe Seed for Reproducibility 
 SEED = 42 
 random.seed(SEED)
 np.random.seed(SEED)
@@ -54,13 +55,6 @@ config = {
     "max_episodes": 2000,
 }
 
-environment_parameters = {
-    "gravity": -10.0,
-    "enable_wind": False,
-    "wind_power": 5.0,
-    "turbulence_power": 0.25
-}
-
 # --- Tuning Ranges for Each Parameter ---
 TUNING_RANGES = {
     "layers": [ 
@@ -78,6 +72,14 @@ TUNING_RANGES = {
     "gamma": [0.98, 0.99, 0.995] 
 }
 
+# --- Environment Parameters ---
+# This will be changed later to evaluate the performance of the agent with different environmental settings
+environment_parameters = {
+    "gravity": -10.0,
+    "enable_wind": False,
+    "wind_power": 5.0,
+    "turbulence_power": 0.25
+}
 
 # --- Helper Function to Create Environment ---
 def create_lunar_lander_env():
@@ -100,23 +102,21 @@ def run_training_iteration(
     print(f"\n--- Running Training: {iteration_name} ---")
     print(f"Hyperparameters for this run: {current_hyperparams}")
 
-    # --- RE-SEEDING FOR EACH ITERATION ---
+    # re-seeding for each operation
     random.seed(SEED)
     np.random.seed(SEED)
     torch.manual_seed(SEED)
     # Important for CUDA operations
     if torch.cuda.is_available():
         torch.cuda.manual_seed(SEED)
-        torch.cuda.manual_seed_all(SEED) # For systems with multiple GPUs
+        torch.cuda.manual_seed_all(SEED) #for systems with multiple GPUs
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
-    # --- END RE-SEEDING ---
 
     log_dir_suffix = iteration_name.replace(" ", "_").replace(":", "_").replace(",", "").replace("[", "").replace("]", "").replace("__", "_")
     LOG_DIR = os.path.join(os.getcwd(), "logs", log_dir_suffix)
     CSV_FILENAME = os.path.join("tune/" + f"{current_folder}/" + f"{log_dir_suffix}.csv") 
 
-    # Ensure log directory exists for this run
     os.makedirs(LOG_DIR, exist_ok=True)
 
     env = create_lunar_lander_env()
@@ -157,15 +157,12 @@ def run_training_iteration(
 # --- MAIN TUNING SCRIPT ---
 # ==============================================================================
 
-
 if RUN_NOMINAL_BASELINE:
     print("\n##### Running Nominal Baseline Configuration #####")
     
     nominal_run_hyperparams = config.copy() 
     run_training_iteration(nominal_run_hyperparams, "nominal_baseline", "nominal")
-    print("##### Nominal Baseline Complete. Analyze results before proceeding. #####")
-    # USER ACTION REQUIRED: After this run, analyze 'nominal_baseline.csv' and TensorBoard logs.
-    # Note down the performance to compare against tuned runs.
+    print("##### Nominal Baseline complete #####")
 
 # ------------------------------------------------------------------------------
 
@@ -177,11 +174,10 @@ if TUNE_LAYERS:
         layer_name = "_".join(map(str, layer_config))
         run_training_iteration(current_run_hyperparams, f"layers_{layer_name}", "layers")
 
-    print("##### Layer Tuning Complete. Analyze results and update 'hyperparameters[\"layers\"]' for next phase. #####")
-
+    print("##### Layer Tuning complete #####")
 
 # ------------------------------------------------------------------------------
-
+# Here we select the layers that gave the best performance after evaluating the plot
 config["layers"] = [128, 128]
 
 if TUNE_BATCH_SIZE:
@@ -191,7 +187,7 @@ if TUNE_BATCH_SIZE:
         current_run_hyperparams["batch_size"] = batch_size_value
         run_training_iteration(current_run_hyperparams, f"batch_size_{batch_size_value}", "batch")
 
-    print("##### Batch Size Tuning Complete. Analyze results and update 'hyperparameters[\"batch_size\"]' for next phase. #####")
+    print("##### Batch Size Tuning complete #####")
 
 # ------------------------------------------------------------------------------
 
@@ -205,7 +201,7 @@ if TUNE_LEARNING_RATE:
         current_run_hyperparams["learning_rate"] = learning_rate_value
         run_training_iteration(current_run_hyperparams, f"learning_rate_{learning_rate_value}", "learning_rate")
     
-    print("##### Learning Rate Tuning Complete. Analyze results and update 'hyperparameters[\"learning_rate\"]' for next phase. #####")
+    print("##### Learning Rate Tuning complete #####")
 
 # ------------------------------------------------------------------------------
 
@@ -218,7 +214,7 @@ if TUNE_EPSILON_DECAY:
         current_run_hyperparams["epsilon_decay"] = epsilon_decay_value
         run_training_iteration(current_run_hyperparams, f"epsilon_decay_{epsilon_decay_value}", "epsilon_decay")
 
-    print("##### Epsilon Decay Tuning Complete. Analyze results and update 'hyperparameters[\"epsilon_decay\"]' for next phase. #####")
+    print("##### Epsilon Decay Tuning complete #####")
 
 # ------------------------------------------------------------------------------
 
@@ -231,21 +227,17 @@ if TUNE_EPSILON_MIN: # Added this block
         current_run_hyperparams["epsilon_min"] = epsilon_min_value
         run_training_iteration(current_run_hyperparams, f"epsilon_min_{epsilon_min_value}", "epsilon_min")
 
-    print("##### Epsilon End Tuning Complete. Analyze results and update 'hyperparameters[\"epsilon_min\"]' for next phase. #####")
+    print("##### Epsilon End Tuning complete #####")
 
 # ------------------------------------------------------------------------------
 
 if TUNE_GAMMA:
-    print("\n##### Tuning Discount Factor (Gamma) #####")
+    print("\n##### Tuning Discount Factor #####")
     for gamma_value in TUNING_RANGES["gamma"]:
         current_run_hyperparams = config.copy()
         current_run_hyperparams["gamma"] = gamma_value
         run_training_iteration(current_run_hyperparams, f"gamma_{gamma_value}", "discount_factor")
 
-    print("##### Discount Factor (Gamma) Tuning Complete. Analyze results and update 'hyperparameters[\"gamma\"]' for next phase. #####")
+    print("##### Discount Factor  Tuning complete #####")
 
 # ------------------------------------------------------------------------------
-
-print("\nAll selected tuning phases completed.")
-print("Remember to manually review the 'layout_analysis' folder and 'logs' (TensorBoard) for detailed results.")
-print("The 'hyperparameters' dictionary in this script should be updated with the best values found after each phase.")
