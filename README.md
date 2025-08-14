@@ -1,55 +1,96 @@
-# bio-inspired-2025-ae4350
+# Bio-Inspired 2025 – AE4350
 
+## Setup Instructions
 
-##Setup instructions##
+### 1. Create and activate a conda environment
 
-#Create and activate conda enfironment
-
+```bash
 conda create -n lunarlander-rl python=3.10
 conda activate lunarlander-rl
+```
 
-#To install the packages, 
+### 2. Install the required packages
+
+```bash
 pip install -r requirements.txt
+```
 
+---
 
+## Lunar Lander Environment Description
 
-# information of the environment
+**State vector** (8 elements):
 
-state vector of lunar lander: 
-0: x position
-1: y position
-2: x velocity
-3: y velocity
-4: angle of lander (radians)
-5: angular velocity
-6: left leg contact (0 or 1)
-7: right leg contact (0 or 1)
+| Index | Description                |
+| ----- | -------------------------- |
+| 0     | Horizontal position (*x*)  |
+| 1     | Vertical position (*y*)    |
+| 2     | Horizontal velocity (*vx*) |
+| 3     | Vertical velocity (*vy*)   |
+| 4     | Lander angle (radians)     |
+| 5     | Angular velocity           |
+| 6     | Left leg contact (0 or 1)  |
+| 7     | Right leg contact (0 or 1) |
 
-actions of the lunar lander: 
-0: nothing
-1: fire left orientation engine
-2: fire main (downward) engine
-3: fire right orientation engine 
+**Actions** (discrete):
 
+| Action ID | Description                   |
+| --------- | ----------------------------- |
+| 0         | Do nothing                    |
+| 1         | Fire left orientation engine  |
+| 2         | Fire main (downward) engine   |
+| 3         | Fire right orientation engine |
 
-# code functioning
+---
 
-To evaluate the tuning of the different parameters, the order on which the parameters have been tuned are: 
+## Code Overview
 
-First a nominal_baseline is run based on information from literature, to obtain directly the values that give approximately good results. Once this baseline is done and it has been seen to work correctly, a list of hyperparameters is evaluated to select the best solutions. They will be evaluated secuentially. Once one is evalauted, the best parameter will be selected and the following parameter will be then evaluated
+This repository contains scripts for training, tuning, and running a Deep Q-Network (DQN) agent to solve the Lunar Lander environment.
 
-- layers
-- batch size
-- learning rate
-- epsilon decay
-- epsilon min
-- gamma
+The tuning process follows a **sequential approach**:
 
-In the repository there are different codes, which serve for different purposes for the training of the network for the accomplishment of the lunar lander mission. 
+1. Run a **nominal baseline** using literature-based hyperparameters to achieve approximately good performance.
+2. Sequentially tune each selected hyperparameter while keeping the previously tuned ones fixed.
+3. For each hyperparameter, evaluate different candidate values, select the best one, and proceed to the next parameter.
 
-- train_DQN.py: this code includes all the necessary functions to train the network. 
-- tune_DQN.py: This code is done to tune one by one all the parameters selected. The code will call the trainAgent function from the train_DQN.py to train the agent. The data of the episodes will be saved in a csv file in tune/ under the name of the hyperparameter that is being tuned, and the value of the hyperparameter. Once the agent has reached convergence, or the number of episodes has reached it's maximum, the model is saved under the "saved_models/", this serves to make the trained agent play the game. The file is saved under the name of the name of the hyperparameter tuned, followed by the value of the hyperparameter together with the epusode number on which it converged. 
-- plot_tuned.py: this code serves to plot the results of the different tuning. It access the selection of the hyperparameters list and it pltos the .csv files for comparison. 
-- run_DQN.py: This function makes the agent play the lunar lander game, it is necessary to enter manually the name of the trained agent that wants to be run, on the saved/models folder. 
+**Tuning order:**
 
-The flags need to be set as true to select the parameters that wants to be tuned. It has to be taken into consideration that if the code is run with any of the flags set as true, the csv file saved in tune will be overwritten with the new episodes. 
+1. Number of layers
+2. Batch size
+3. Learning rate
+4. Epsilon decay rate
+5. Minimum epsilon
+6. Discount factor (*gamma*)
+
+---
+
+### Repository Contents
+
+* **`train_DQN.py`**
+  Contains all necessary functions to train the DQN agent.
+
+* **`tune_DQN.py`**
+  Sequentially tunes each selected hyperparameter.
+
+  * Calls the `trainAgent` function from `train_DQN.py` for training.
+  * Saves episode performance data as `.csv` files in the `tune/` directory, named using the tuned hyperparameter and its value.
+  * Once the agent converges or the maximum number of episodes is reached, saves the trained model in `saved_models/` using the naming format:
+
+    ```
+    {hyperparameter}_{value}_ep{convergence_episode}.pth
+    ```
+
+* **`plot_tuned.py`**
+  Reads the `.csv` results from tuning and plots them for comparison of different hyperparameter values.
+
+* **`run_DQN.py`**
+  Loads a saved trained model and lets the agent play the Lunar Lander game.
+
+  * The model name must be manually specified from the `saved_models/` folder.
+
+---
+
+## Important Notes
+
+* Tuning is controlled via **boolean flags** in the code. Set a flag to `True` to enable tuning for a given parameter.
+* **Warning:** Running the tuning process with any flag enabled will **overwrite** the corresponding `.csv` file in the `tune/` directory.
