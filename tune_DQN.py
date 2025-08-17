@@ -20,6 +20,7 @@ TUNE_LEARNING_RATE = False
 TUNE_EPSILON_DECAY = False
 TUNE_EPSILON_MIN = False
 TUNE_GAMMA = False
+RUN_ENVIRONMENT = True
 
 # --- Directory Setup ---
 os.makedirs("tune", exist_ok=True)
@@ -30,6 +31,7 @@ os.makedirs("tune/epsilon_decay", exist_ok=True)
 os.makedirs("tune/epsilon_min", exist_ok=True) # Added for clarity
 os.makedirs("tune/layers", exist_ok=True)
 os.makedirs("tune/discount_factor", exist_ok=True)
+os.makedirs("tune/environment", exist_ok=True)
 os.makedirs("saved_models", exist_ok=True)
 
 # fixe Seed for Reproducibility 
@@ -240,4 +242,22 @@ if TUNE_GAMMA:
 
     print("##### Discount Factor  Tuning complete #####")
 
-# ------------------------------------------------------------------------------
+config["gamma"] = 0.99
+
+# ==============================================================================
+# --- CHANGE OF ENVIRONMENT ---
+# ==============================================================================
+
+environment_parameters = {
+    "gravity": -8,
+    "enable_wind": False,
+    "wind_power": 0.0,
+    "turbulence_power": 0.0
+}
+
+if RUN_ENVIRONMENT:
+    print("\n##### Running different environment configuration #####")
+    
+    run_hyperparams = config.copy() 
+    run_training_iteration(run_hyperparams, "environment3", "environment")
+    print("##### Environment complete #####")
