@@ -23,13 +23,14 @@ mpl.rcParams.update({
 # --- Configuration Flags (from your tune_DQN.py) ---
 # Ensure these match your tuning script's enabled flags
 PLOT_NOMINAL_BASELINE = False
-PLOT_LAYERS = True
-PLOT_BATCH_SIZE = True
-PLOT_LEARNING_RATE = True
-PLOT_EPSILON_DECAY = True
-PLOT_EPSILON_MIN = True
-PLOT_GAMMA = True
+PLOT_LAYERS = False
+PLOT_BATCH_SIZE = False
+PLOT_LEARNING_RATE = False
+PLOT_EPSILON_DECAY = False
+PLOT_EPSILON_MIN = False
+PLOT_GAMMA = False
 PLOT_ENVIRONMENT = True 
+PLOT_DDQN = False
 
 
 # --- Base directory for saving CSVs ---
@@ -476,3 +477,60 @@ if PLOT_ENVIRONMENT:
     for env_config, reward in convergence_summary.items():
         print(f"{env_config}: {reward}")
     print("-" * 50)
+
+if PLOT_DDQN: 
+       
+    print("\n##### Plotting DDQN #####")
+    CSV_FILE_DQN = "tune/discount_factor/gamma_0.99.csv"  # Change path if needed
+    CSV_FILE_DDQN = "tune/ddqn_test/ddqn.csv"  # Change path if needed
+    WINDOW = 100  # Moving average window size
+
+    episodes_dqn = []
+    rewards_dqn = []
+
+    with open(CSV_FILE_DQN, newline='') as csvfile:
+        reader = csv.reader(csvfile)
+        for row in reader:
+            if row:  # skip empty lines
+                if row[0] == "episode":  # skip header
+                    continue
+                ep, rew = row
+                episodes_dqn.append(int(ep))
+                rewards_dqn.append(float(rew))
+
+    episodes_ddqn = []
+    rewards_ddqn = []
+
+    with open(CSV_FILE_DDQN, newline='') as csvfile:
+        reader = csv.reader(csvfile)
+        for row in reader:
+            if row:  # skip empty lines
+                if row[0] == "episode":  # skip header
+                    continue
+                ep, rew = row
+                episodes_ddqn.append(int(ep))
+                rewards_ddqn.append(float(rew))
+
+    plt.figure(figsize=(8, 5))
+    plt.xlabel('Episode [-]', fontsize=18)
+    plt.ylabel(f'Mean Reward [-]', fontsize=18)
+    plt.grid(True, linestyle='--', alpha=0.6)
+
+    # === PLOT MOVING AVERAGE ===
+    if len(rewards_dqn) >= WINDOW:
+        moving_avg = np.convolve(rewards_dqn, np.ones(WINDOW)/WINDOW, mode='valid')
+        plt.plot(episodes_dqn[WINDOW-1:], moving_avg, label=f"Moving Avg DQN", color='tab:red', linewidth=2)
+
+    if len(rewards_ddqn) >= WINDOW:
+        moving_avg = np.convolve(rewards_ddqn, np.ones(WINDOW)/WINDOW, mode='valid')
+        plt.plot(episodes_ddqn[WINDOW-1:], moving_avg, label=f"Moving Avg DDQN", color='tab:blue', linewidth=2)
+
+
+    plt.legend(loc='lower right', bbox_to_anchor=(1.0, 0), fontsize=12)
+    plt.tick_params(axis='y', labelsize=18)
+    plt.tick_params(axis='x', labelsize=18)
+    plt.gca().yaxis.get_offset_text().set_fontsize(18)
+
+    plt.subplots_adjust(left=0.15, right=0.95, top=0.95, bottom=0.2)
+    plt.xlim([100,282])
+    plt.savefig(f"plots/ddqn.pdf")

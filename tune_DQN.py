@@ -7,7 +7,7 @@ import numpy as np
 import gymnasium as gym
 import os
 
-from train_DQN import DQNAgent, trainDQN
+from train_DQN import DQNAgent, DDQNAgent, trainDQN
 
 # --- Configuration Flags ---
 RUN_NOMINAL_BASELINE = False
@@ -20,7 +20,8 @@ TUNE_LEARNING_RATE = False
 TUNE_EPSILON_DECAY = False
 TUNE_EPSILON_MIN = False
 TUNE_GAMMA = False
-RUN_ENVIRONMENT = True
+RUN_DDQN_TEST = True
+RUN_ENVIRONMENT = False
 
 # --- Directory Setup ---
 os.makedirs("tune", exist_ok=True)
@@ -32,6 +33,7 @@ os.makedirs("tune/epsilon_min", exist_ok=True) # Added for clarity
 os.makedirs("tune/layers", exist_ok=True)
 os.makedirs("tune/discount_factor", exist_ok=True)
 os.makedirs("tune/environment", exist_ok=True)
+os.makedirs("tune/ddqn_test", exist_ok=True) # New directory for DDQN results
 os.makedirs("saved_models", exist_ok=True)
 
 # fixe Seed for Reproducibility 
@@ -97,12 +99,14 @@ def run_training_iteration(
     current_hyperparams: dict,
     iteration_name: str,
     current_folder:str,
+    agent_type: str = "DQN" # Added a new parameter to specify agent type
 ):
     """
     Sets up and runs a single training session with the given hyperparameters.
     """
     print(f"\n--- Running Training: {iteration_name} ---")
     print(f"Hyperparameters for this run: {current_hyperparams}")
+    print(f"Agent Type: {agent_type}") # Print agent type
 
     # re-seeding for each operation
     random.seed(SEED)
@@ -128,16 +132,27 @@ def run_training_iteration(
     obs_dim = env.observation_space.shape[0]
     n_actions = env.action_space.n
 
-    # Initialize the DQNAgent with parameters from the current_hyperparams dict
-    agent = DQNAgent(
-        state_size=obs_dim,
-        action_size=n_actions,
-        hidden_layers=current_hyperparams["layers"],
-        learning_rate=current_hyperparams["learning_rate"],
-        gamma=current_hyperparams["gamma"],
-        batch_size=current_hyperparams["batch_size"],
-        target_update_freq=current_hyperparams["target_update_freq"]
-    )
+    # Initialize the correct DQNAgent or DDQNAgent based on agent_type
+    if agent_type == "DDQN":
+        agent = DDQNAgent(
+            state_size=obs_dim,
+            action_size=n_actions,
+            hidden_layers=current_hyperparams["layers"],
+            learning_rate=current_hyperparams["learning_rate"],
+            gamma=current_hyperparams["gamma"],
+            batch_size=current_hyperparams["batch_size"],
+            target_update_freq=current_hyperparams["target_update_freq"]
+        )
+    else: # Default to DQN
+        agent = DQNAgent(
+            state_size=obs_dim,
+            action_size=n_actions,
+            hidden_layers=current_hyperparams["layers"],
+            learning_rate=current_hyperparams["learning_rate"],
+            gamma=current_hyperparams["gamma"],
+            batch_size=current_hyperparams["batch_size"],
+            target_update_freq=current_hyperparams["target_update_freq"]
+        )
     
     writer = SummaryWriter(log_dir=LOG_DIR)
 
@@ -220,7 +235,7 @@ if TUNE_EPSILON_DECAY:
 
 # ------------------------------------------------------------------------------
 
-config["epsilon_decay"] = 0.002
+config["epsilon_decay"] = 0.005
 
 if TUNE_EPSILON_MIN: # Added this block
     print("\n##### Tuning Epsilon End #####")
@@ -245,19 +260,47 @@ if TUNE_GAMMA:
 config["gamma"] = 0.99
 
 # ==============================================================================
+# --- TEST WITH DDQN AGENT ---
+# ==============================================================================
+if RUN_DDQN_TEST:
+    print("\n##### Running DDQN Agent Test with Final Hyperparameters #####")
+
+    # Final hyperparameters you selected from your original tuning
+    final_hyperparams = {
+        "learning_rate": 5e-4,
+        "batch_size": 64,
+        "layers": [128, 128],
+        "epsilon_start": 1.0,
+        "epsilon_min": 0.01,
+        "epsilon_decay": 0.005,
+        "gamma": 0.99,
+        "target_update_freq": 1000,
+        "max_episodes": 2000,
+    }
+    
+    # Run a single training iteration with the DDQN agent
+    run_training_iteration(
+        current_hyperparams=final_hyperparams,
+        iteration_name="ddqn_final_params",
+        current_folder="ddqn_test",
+        agent_type="DDQN" # Specify the agent type
+    )
+
+    print("##### DDQN Agent Test complete #####")
+
+# ==============================================================================
 # --- CHANGE OF ENVIRONMENT ---
 # ==============================================================================
 
 environment_parameters = {
-    "gravity": -8,
-    "enable_wind": False,
-    "wind_power": 0.0,
-    "turbulence_power": 0.0
+    "gravity": -3.71,
+    "enable_wind": True,
+    "wind_power": 0.05,
+    "turbulence_power": 0.05
 }
-
 if RUN_ENVIRONMENT:
     print("\n##### Running different environment configuration #####")
     
     run_hyperparams = config.copy() 
-    run_training_iteration(run_hyperparams, "environment3", "environment")
+    run_training_iteration(run_hyperparams, "environment1", "environment")
     print("##### Environment complete #####")

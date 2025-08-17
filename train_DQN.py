@@ -116,6 +116,33 @@ class DQNAgent:
     def update_target_network(self):
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
+# --- DDQN Agent ---
+class DDQNAgent(DQNAgent):
+    def learn(self):
+        if len(self.replay_buffer) < self.batch_size:
+            return None 
+
+        obs_batch, act_batch, rew_batch, next_obs_batch, done_batch = self.replay_buffer.sample(self.batch_size)
+
+        q_values = self.policy_net(obs_batch).gather(1, act_batch.unsqueeze(-1)).squeeze(-1)
+
+        with torch.no_grad():
+            # DDQN logic: action selection from policy_net, evaluation from target_net
+            next_actions = self.policy_net(next_obs_batch).argmax(dim=1).unsqueeze(1)
+            next_q_values = self.target_net(next_obs_batch).gather(1, next_actions).squeeze(1)
+            target_q = rew_batch + self.gamma * next_q_values * (1 - done_batch)
+
+        loss = nn.MSELoss()(q_values, target_q)
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        self.frame_idx += 1
+        if self.frame_idx % self.target_update_freq == 0:
+            self.update_target_network()
+
+        return loss.item()
+    
 # --- Convergence Evaluation Function ---
 def evaluate_convergence(
         csv_filepath: str,
